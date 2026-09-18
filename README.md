@@ -145,6 +145,23 @@ export OPENAI_MODEL=gpt-4o-mini
 
 ## Running SchemaDoctor
 
+### 1. Interactive Browser Demo (Recommended for Judges)
+
+Launch the zero-dependency standard-library web UI:
+```bash
+python3 server.py
+```
+Then open your browser to:
+👉 **[http://localhost:8080](http://localhost:8080)**
+
+Features:
+- Paste any migration SQL or click the pre-filled example buttons.
+- Click **"Run SchemaDoctor"** to observe the real agent execute live against SQLite.
+- Inspect the complete trajectory: `PLAN` $\rightarrow$ `ACT` $\rightarrow$ `OBSERVE` $\rightarrow$ `RE-PLAN` $\rightarrow$ `VERIFY`.
+- Toggle between Real LLM Mode (local Ollama / Gemini) and Offline Mock Planner.
+
+### 2. Command-Line Trace
+
 ```bash
 # Run both scenarios back-to-back in REAL LLM Mode:
 python3 main.py --all

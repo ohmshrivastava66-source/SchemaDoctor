@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SchemaDoctor — Autonomous Database Migration Repair Agent</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --badge-bg: #1e1b4b;
+      --badge-border: #4338ca;
+      --code-bg: #020617;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .header-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background-color: rgba(56, 189, 248, 0.1);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      margin-bottom: 0.75rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(to right, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .example-buttons {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pill-btn {
+      background: #334155;
+      color: #e2e8f0;
+      border: none;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .pill-btn:hover {
+      background: #475569;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: #38bdf8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      resize: vertical;
+      margin-bottom: 1rem;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .mode-select {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    select {
+      background: #334155;
+      color: #f8fafc;
+      border: 1px solid var(--card-border);
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .run-btn {
+      background: linear-gradient(135deg, #0284c7, #4f46e5);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .run-btn:hover:not(:disabled) {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .run-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top: 2px solid white;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Trace Timeline */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .step-card {
+      background: #1e293b;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      border-left: 4px solid var(--primary);
+      transition: all 0.2s;
+    }
+
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .step-number {
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary);
+    }
+
+    .tool-badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-family: monospace;
+      background: #0284c7;
+      color: white;
+    }
+
+    .tool-badge.finish {
+      background: var(--success);
+    }
+
+    .tool-badge.error {
+      background: var(--error);
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-top: 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .thought-text {
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      border-left: 2px solid #818cf8;
+    }
+
+    pre.code-block {
+      background: var(--code-bg);
+      padding: 0.6rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: #f1f5f9;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      border: 1px solid #1e293b;
+    }
+
+    .obs-box {
+      padding: 0.6rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      white-space: pre-wrap;
+    }
+
+    .obs-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+
+    .obs-success {
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #86efac;
+    }
+
+    .obs-info {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #bae6fd;
+    }
+
+    .final-status {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1.5rem;
+      font-weight: 600;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #4ade80;
+    }
+
+    .final-status.error {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="header-badge">EpochEsque 2.0 • Track 2: Build the Brain, Not the Puppet</div>
+      <h1>SchemaDoctor</h1>
+      <p class="subtitle">Autonomous Database Migration Repair Agent with Custom PLAN → ACT → OBSERVE → RE-PLAN Framework</p>
+    </header>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Input Migration SQL</span>
+        <div class="example-buttons">
+          <button type="button" class="pill-btn" onclick="loadExample('incompatible')">Load Incompatible PostgreSQL</button>
+          <button type="button" class="pill-btn" onclick="loadExample('compatible')">Load Compatible SQLite</button>
+        </div>
+      </div>
+
+      <textarea id="sqlInput" placeholder="Paste migration SQL here..."></textarea>
+
+      <div class="controls">
+        <div class="mode-select">
+          <label for="providerMode">Reasoning Brain:</label>
+          <select id="providerMode">
+            <option value="real">Real LLM (Local Ollama / Gemini)</option>
+            <option value="mock">Offline Mock Planner (Deterministic)</option>
+          </select>
+        </div>
+
+        <button id="runBtn" class="run-btn" onclick="runDoctor()">
+          <span class="spinner" id="spinner"></span>
+          <span id="btnText">Run SchemaDoctor</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Output Section -->
+    <div id="outputSection" style="display: none;">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Agent Execution Trajectory</span>
+          <span id="providerBadge" style="font-size: 0.8rem; color: var(--text-muted);"></span>
+        </div>
+
+        <div id="timeline" class="timeline"></div>
+
+        <div id="finalStatus" class="final-status"></div>
+      </div>
+    </div>
+
+    <footer>
+      SchemaDoctor • 100% Custom Agent Loop • Zero LangChain/CrewAI/AutoGen
+    </footer>
+  </div>
+
+  <script>
+    const EXAMPLES = {
+      incompatible: `CREATE TABLE users (\n    id BIGSERIAL PRIMARY KEY,\n    profile JSONB,\n    created_at TIMESTAMP DEFAULT NOW()\n);`,
+      compatible: `CREATE TABLE products (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,\n    name TEXT NOT NULL,\n    price REAL NOT NULL,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);`
+    };
+
+    function loadExample(type) {
+      document.getElementById("sqlInput").value = EXAMPLES[type] || "";
+    }
+
+    // Default load incompatible example
+    loadExample('incompatible');
+
+    async function runDoctor() {
+      const sql = document.getElementById("sqlInput").value.trim();
+      if (!sql) {
+        alert("Please enter SQL migration statements to repair.");
+        return;
+      }
+
+      const mode = document.getElementById("providerMode").value;
+      const runBtn = document.getElementById("runBtn");
+      const spinner = document.getElementById("spinner");
+      const btnText = document.getElementById("btnText");
+      const outputSection = document.getElementById("outputSection");
+      const timeline = document.getElementById("timeline");
+      const finalStatus = document.getElementById("finalStatus");
+      const providerBadge = document.getElementById("providerBadge");
+
+      runBtn.disabled = true;
+      spinner.style.display = "inline-block";
+      btnText.textContent = "Agent Working...";
+      outputSection.style.display = "block";
+      timeline.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 2rem;">🧠 Agent is planning and executing tools against SQLite...</div>`;
+      finalStatus.style.display = "none";
+
+      try {
+        const response = await fetch("/api/repair", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sql, mode })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server returned HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        renderTrajectory(data);
+      } catch (err) {
+        timeline.innerHTML = `<div class="obs-box obs-error">Failed to run SchemaDoctor: ${err.message}</div>`;
+      } finally {
+        runBtn.disabled = false;
+        spinner.style.display = "none";
+        btnText.textContent = "Run SchemaDoctor";
+      }
+    }
+
+    function renderTrajectory(data) {
+      const timeline = document.getElementById("timeline");
+      const finalStatus = document.getElementById("finalStatus");
+      const providerBadge = document.getElementById("providerBadge");
+
+      providerBadge.textContent = `Provider: ${data.provider[0]} (${data.provider[1]})`;
+      timeline.innerHTML = "";
+
+      data.steps.forEach((step) => {
+        const card = document.createElement("div");
+        card.className = "step-card";
+
+        let toolClass = "tool-badge";
+        if (step.action === "finish") toolClass += " finish";
+        if (step.action.includes("error")) toolClass += " error";
+
+        let obsClass = "obs-info";
+        if (step.observation && step.observation.includes("[DATABASE ERROR]")) {
+          obsClass = "obs-error";
+        } else if (step.observation && (step.observation.includes("[SUCCESS]") || step.observation.includes("[VERIFIED SCHEMA]"))) {
+          obsClass = "obs-success";
+        }
+
+        const argsPretty = step.action_args && Object.keys(step.action_args).length > 0 
+          ? JSON.stringify(step.action_args, null, 2)
+          : "None";
+
+        const planLabel = step.step_number === 1 ? "PLAN" : "RE-PLAN / PLAN";
+
+        card.innerHTML = `
+          <div class="step-header">
+            <span class="step-number">Iteration ${step.step_number} • ${planLabel}</span>
+            <span class="${toolClass}">Action: ${step.action}</span>
+          </div>
+
+          <div class="section-label">🧠 Thought Rationale</div>
+          <div class="thought-text">${escapeHtml(step.thought)}</div>
+
+          ${step.action_args && Object.keys(step.action_args).length > 0 ? `
+            <div class="section-label">⚡ Tool Arguments (${step.action})</div>
+            <pre class="code-block">${escapeHtml(argsPretty)}</pre>
+          ` : ""}
+
+          <div class="section-label">👁️ Observation Feedback</div>
+          <div class="obs-box ${obsClass}">${escapeHtml(step.observation || "No observation")}</div>
+        `;
+
+        timeline.appendChild(card);
+      });
+
+      finalStatus.style.display = "flex";
+      if (data.status === "completed") {
+        finalStatus.className = "final-status";
+        finalStatus.innerHTML = `<span>🏁 Final Status: <strong>COMPLETED</strong> — ${escapeHtml(data.result || "Migration repaired and schema verified.")}</span>`;
+      } else {
+        finalStatus.className = "final-status error";
+        finalStatus.innerHTML = `<span>⚠️ Final Status: <strong>${data.status.toUpperCase()}</strong> — ${escapeHtml(data.result || "Process stopped before completion.")}</span>`;
+      }
+    }
+
+    function escapeHtml(text) {
+      if (!text) return "";
+      return text.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>

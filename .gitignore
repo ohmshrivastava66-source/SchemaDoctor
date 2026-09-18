@@ -1,4 +1,6 @@
 .env
 __pycache__/
 *.pyc
+*.db
 migration_test.db
+web_demo.db
